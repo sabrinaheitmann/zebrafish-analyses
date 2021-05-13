@@ -1,0 +1,84 @@
+---
+title: "Disease columns"
+author: "Sabrina Heitmann"
+date: "5/12/2021"
+output: html_document
+---
+
+Load packages
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+
+Tidy dataset, populates sex column, and populates a column with disease data to show that it can be done
+```{r}
+# upload fish data
+zdata_formatted <- read.csv("final_formatted_data_v2.csv", na.strings=c("","NA"))
+
+#preview dataset
+glimpse(zdata_formatted)
+
+# Pivots text longer (each fish has own row  )
+zdata_tidy <- zdata_formatted %>%
+  pivot_longer(
+   cols = starts_with("Fish_Entry"),
+   names_to = "fish",
+   names_prefix = "Fish_Entry",
+   values_to = "histo_inv_fish",
+   values_drop_na = TRUE
+ )
+
+# keep only important columns (can adjust if needed)
+zdata_reduced <- zdata_tidy %>%
+  select(histo_inv_fish, CaseId, Histopathology, fish, CaseDescr_right)
+
+# populates new sex column
+filtered_sex <- zdata_reduced %>%
+  filter(str_detect(histo_inv_fish, "[Mm]ale")) %>%
+  group_by(CaseId) %>% mutate(fish = row_number()) %>%
+  mutate(sex = str_extract(histo_inv_fish, "Female|Male")) %>% 
+  mutate(fish_id = paste(CaseId, "_", fish, sep = ""))
+
+# Extracts disease from histopathology column and populated binary disease column (1 = presence, 0 = absence)
+# This shows us that this can be done, however, we need to make a function so it can be automated for our list of diseases
+disease_columns <- filtered_sex %>%
+  mutate(Hepatic_meglocytosis = str_extract(histo_inv_fish, "[Hh]epatic megalocytosis")) %>%
+  mutate(Hepatic_meglocytosis = if_else(Hepatic_meglocytosis == "[a-z]", 1, 1, 0))
+
+``` 
+
+1. Make a function that extracts a disease from each individual fish's histopathology and populates presence or absence in new column (binary) 
+```{r}
+# function works except it doesn't name the column with the disease
+disease_to_columns <- function(dataset, disease, column_name){ 
+  dataset %>%
+    mutate(column_name = str_extract(histo_inv_fish, disease)) %>%
+    mutate(column_name = if_else(column_name == "[a-z]", 1, 1, 0))
+}
+
+filtered_wdisease <- disease_to_columns(filtered_sex, "[Hh]epatic megalocytosis", Hepatic_meglocytosis)
+filtered_wdisease <- disease_to_columns(filtered_sex, "NSL", NSL)
+```
+
+2. Create a list of all diseases (and synonyms) we want to extract
+```{r}
+
+```
+
+3. Use lapply (or variant) to iterate over list
+```{r}
+lapply(list, disease_to_columns)
+```
+
+4. Run pipeline on rows on already annotated disease columns and compare numbers
+```{r}
+
+```
+
+5. Run pipeline on full dataset
+```{r}
+
+```
+
+Outcome: Disease columns are now populated on a per fish basis
