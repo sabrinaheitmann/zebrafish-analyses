@@ -37,7 +37,7 @@ zdata_reduced <- zdata_tidy %>%
 filtered_sex <- zdata_reduced %>%
   filter(str_detect(histo_inv_fish, "[Mm]ale")) %>%
   group_by(CaseId) %>% mutate(fish = row_number()) %>%
-  mutate(sex = str_extract(histo_inv_fish, "Female|Male")) %>% 
+  mutate(sex = str_extract(histo_inv_fish, "Female|Male")) %>%
   mutate(fish_id = paste(CaseId, "_", fish, sep = ""))
 
 # Extracts disease from histopathology column and populated binary disease column (1 = presence, 0 = absence)
@@ -46,12 +46,12 @@ disease_columns <- filtered_sex %>%
   mutate(Hepatic_meglocytosis = str_extract(histo_inv_fish, "[Hh]epatic megalocytosis")) %>%
   mutate(Hepatic_meglocytosis = if_else(Hepatic_meglocytosis == "[a-z]", 1, 1, 0))
 
-``` 
+```
 
-1. Make a function that extracts a disease from each individual fish's histopathology and populates presence or absence in new column (binary) 
+1. Make a function that extracts a disease from each individual fish's histopathology and populates presence or absence in new column (binary)
 ```{r}
 # function works except it doesn't name the column with the disease
-disease_to_columns <- function(dataset, disease, column_name){ 
+disease_to_columns <- function(dataset, disease, column_name){
   dataset %>%
     mutate(column_name = str_extract(histo_inv_fish, disease)) %>%
     mutate(column_name = if_else(column_name == "[a-z]", 1, 1, 0))
@@ -64,11 +64,33 @@ filtered_wdisease <- disease_to_columns(filtered_sex, "NSL", NSL)
 2. Create a list of all diseases (and synonyms) we want to extract
 ```{r}
 
+
 ```
 
-3. Use lapply (or variant) to iterate over list
+3. We're going to use nested for loops instead of lapply()
+BR: this code block has not been tested for syntax or function; it's just what we ended with after meeting on 05.14.2021
+next steps: find out what exactly mutate does, to know if we can just add it to this block below without redundancies.
 ```{r}
-lapply(list, disease_to_columns)
+
+#filtered_wdisease
+for (fish in filtered_wdisease$histo_inv_fish) {
+  for(row_num in 1:nrow(synonyms)) {
+    eachDisease_row = synonyms[row_num, ]
+    #Create output column based on first column
+    for (col_num in 1:nrow(synonyms))
+      eachSynonym_column = synonyms[ , col_num]
+      # if fish cell total string has smaller synonym string in it...
+      # use mutate below?
+      str_extract(fish, eachSynonym_column)
+      # put the integer 1 in the output csv, in the column whose header name is the parent disease
+      # the parent disease string is the object eachDisease_row[1] (i.e. the first element in the current row of synonyms)
+      # use mutate below?
+      disease_columns(fish, eachSynonym_column, eachDisease_row)
+      # else, put the integer 0 in the column
+
+
+
+
 ```
 
 4. Run pipeline on rows on already annotated disease columns and compare numbers
