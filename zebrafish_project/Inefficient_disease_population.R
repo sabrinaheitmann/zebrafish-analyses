@@ -85,8 +85,8 @@ disease_columns_mutate <- as.data.frame(zdata_tidy) %>%
   mutate(New_UltimobranchialAdenomaOrAdenocarcinoma = if_else(New_UltimobranchialAdenomaOrAdenocarcinoma == "[a-z]", 1, 1, 0)) %>%
   
   # chordoma
-  mutate(New_chordoma = str_extract(histo_inv_fish, "[Cc]hordoma")) %>%
-  mutate(New_chordoma = if_else(New_chordoma == "[a-z]", 1, 1, 0)) %>%
+  mutate(New_Chordoma = str_extract(histo_inv_fish, "[Cc]hordoma")) %>%
+  mutate(New_Chordoma = if_else(New_Chordoma == "[a-z]", 1, 1, 0)) %>%
   
   # Spinal deformity
   mutate(New_SpinalDeformityInHistologicSections = str_extract(histo_inv_fish, "[Ss]pinal deformity|[Kk]yphosis|[Ll]irdisus|[Ss]coliosis")) %>%
@@ -113,8 +113,8 @@ disease_columns_mutate <- as.data.frame(zdata_tidy) %>%
   mutate(New_Bacilli = if_else(New_Bacilli == "[a-z]", 1, 1, 0)) %>%
   
   # Swim Bladder
-  mutate(New_Swim_Bladder = str_extract(histo_inv_fish, "[Ss]wim bladder")) %>%
-  mutate(New_Swim_Bladder = if_else(New_Swim_Bladder == "[a-z]", 1, 1, 0))
+  mutate(New_SwimBladder = str_extract(histo_inv_fish, "[Ss]wim bladder")) %>%
+  mutate(New_SwimBladder = if_else(New_SwimBladder == "[a-z]", 1, 1, 0))
 
 
   
@@ -150,6 +150,60 @@ library(reshape2)
 library(ggplot2)
 
 new.dat <- melt(t_test)
+
+#### Sabrina's figure ####
+library(stringr)
+library(forcats)
+library(wesanderson)
+
+disease_counts <- new.dat %>%
+  group_by(variable) %>%
+  summarise(fish_count = sum(value)) %>%
+  mutate(who_processed = case_when(str_detect(variable, "New_") ~ "ZTeam", TRUE ~ "Katy")) %>%
+  mutate_all(~gsub("New_", "", .)) %>%
+  rename(disease = variable) %>%
+  mutate(disease = gsub('([[:upper:]])', ' \\1', disease)) %>%
+  mutate(fish_count = as.numeric(fish_count)) %>%
+  filter(fish_count != 0) %>% # This could be better coded. Filter out disease if both old and new disease = 0
+  filter(!str_detect(disease, 'Oophoritis|Bladder')) # Only until Risa fixes code
+
+write_csv(disease_counts, "disease_counts_case_basis.csv")
+disease_counts
+unique(disease_counts[c("disease")]) # there are 17 which means that old and new disease names match
+
+#### Error percentages 
+error_percents <- disease_counts %>%
+  pivot_wider(names_from = who_processed, values_from = fish_count) %>%
+  mutate(error_percent = (ZTeam - Katy)/Katy)
+
+error_for_fig <- error_percents %>% 
+  select(error_percent, disease) %>%
+  mutate_if(is.numeric, round, digits = 2)
+
+# Reorder for barchart
+disease_counts %<>%
+  ungroup() %>%
+  arrange(who_processed, fish_count) %>%
+  mutate(disease = fct_inorder(disease))
+  
+
+max_val <- max(disease_counts$fish_count)
+disease_counts %>%
+  ggplot(aes(x = disease, y = fish_count, fill = who_processed)) +
+  geom_bar(stat="identity",position="dodge", alpha=.6, width=.9) +
+  #scale_y_log10()
+  coord_flip() +
+  theme_light() +
+  theme(legend.position = "bottom") +
+  ylab("Number of fish") +
+  xlab("") +
+  labs(fill="Who the disease data was processed by") +
+  scale_fill_manual(values=wes_palette(n=2, name="GrandBudapest1")) +
+  scale_y_continuous(breaks = seq(0, max_val, by = 250), limits=c(0, max_val)) +
+  geom_text(data=error_for_fig,aes(x=disease,y=0,label=error_percent, position = "dodge"),
+            inherit.aes=FALSE, size = 3)
+
+#### Risa's figure ####
 
 # create new column with grouping variable
 # new.dat$condition <- new.dat %>%
@@ -226,7 +280,7 @@ corrdat.red <- disease_columns_mutate %>%
          New_Bacilli,
          New_Splenomegaly,
          New_PseudocapillariaTomentosa,
-         New_Swim_Bladder)
+         New_SwimBladder)
 
 str(as.data.frame(corrdat.red))
 corrmatrix.red <- cor(corrdat.red[, 2:11])
